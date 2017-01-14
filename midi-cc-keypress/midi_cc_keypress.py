@@ -33,6 +33,7 @@ def main():
     shell = win32com.client.Dispatch("WScript.Shell")
     if findWindow(WINDOWTITLE) == "":
         print "Window with title {} not found, please run the application and try again".format(WINDOWTITLE)
+        time.sleep(5)
         exit(ERR_WINDOWNOTFOUND)
 
     # Set up MIDI
