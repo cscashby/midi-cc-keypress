@@ -1,0 +1,5 @@
+pip==9.0.1
+pypiwin32==219
+python-rtmidi==1.0.0
+pywin32-ctypes==0.0.1
+setuptools==15.0
