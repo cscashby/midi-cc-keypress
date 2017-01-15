@@ -1,18 +1,21 @@
 import sys
 import time
 import rtmidi
-import win32com.client
 import ctypes
+import win32con
+import win32com.client
+import win32api
+import win32gui
 
 DEVICENAME = u'nanoKONTROL2'
 WINDOWTITLE = 'MultiPlay'
-DEBUG = False
+DEBUG = True
 
 COMMANDS = (
-    ([176,41,0], "{ }"),
-    ([176,42,0], "{ESC}"),
-    ([176,43,0], "{UP}"),
-    ([176,44,0], "{DOWN}")
+    ([176,41,0], win32con.VK_SPACE),
+    ([176,42,0], win32con.VK_ESCAPE),
+    ([176,43,0], win32con.VK_UP),
+    ([176,44,0], win32con.VK_DOWN)
 )
 
 ERR_DEVICENOTFOUND = 100
@@ -24,8 +27,9 @@ EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int)
 GetWindowText = ctypes.windll.user32.GetWindowTextW
 GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
 IsWindowVisible = ctypes.windll.user32.IsWindowVisible
-GetForegroundWindow = ctypes.windll.user32.GetForegroundWindow
-SetForegroundWindow = ctypes.windll.user32.SetForegroundWindow
+FindWindow = ctypes.windll.user32.FindWindowA
+SendMessage = ctypes.windll.user32.SendMessageA
+GetLastError = ctypes.GetLastError
 
 def main():
     # Check application is running
@@ -68,35 +72,42 @@ def findWindow(title):
             buff = ctypes.create_unicode_buffer(length + 1)
             GetWindowText(hwnd, buff, length + 1)
             if buff.value.find(title) != -1:
-                windows.append(hwnd)
+                windows.append(buff.value)
                 return False
         return True
     EnumWindows(EnumWindowsProc(foreach_window), 0)
     if len(windows) > 0:
-        return windows[0]
+        hwnd = win32gui.FindWindow(None, windows[0])
+        if hwnd == 0:
+            print "Window not found (hwnd == 0)"
+        return hwnd
     else:
         return ""
 
-def getActiveWindowText():
-    hwnd = GetForegroundWindow()
-    length = GetWindowTextLength(hwnd)
-    buff = ctypes.create_unicode_buffer(length + 1)
-    GetWindowText(hwnd, buff, length + 1)
-    return buff.value
-
 def process_message(message, time_stamp):
+    c = findCommand(message[0])    
     if DEBUG:    
         print "{} received at {}".format(message, time_stamp)
-    c = findCommand(message[0])    
     if c:
-        oldHWnd = GetForegroundWindow()
-        SetForegroundWindow(findWindow(WINDOWTITLE))
-        shell.SendKeys(repr(c), 0)
-        time.sleep(0.5)
-        SetForegroundWindow(oldHWnd)
+        hwnd = findWindow(WINDOWTITLE)
+        if hwnd != "":
+            if DEBUG:
+                print "Window: {}".format(hwnd)
+            if isinstance(c, basestring):
+                m = ord(c)
+            if isinstance(c, int):
+                m = c
+            else:
+                print "Unknown key type"
+            SendMessage(hwnd, win32con.WM_KEYDOWN, m, 0)
+            SendMessage(hwnd, win32con.WM_CHAR, m, 0)
+            SendMessage(hwnd, win32con.WM_KEYUP, m, 0)
         
 def findCommand(cmd):
-    return [value for key, value in COMMANDS if repr(key) == repr(cmd)]
+    for key, value in COMMANDS:
+        if repr(key) == repr(cmd):
+            return value
+    return False
  
 if __name__ == '__main__':
     main()
